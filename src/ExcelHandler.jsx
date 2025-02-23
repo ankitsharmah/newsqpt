@@ -136,15 +136,21 @@ const ExcelHandler = () => {
       {rows.length > 0 && (
         <div className="file-handler-table-container">
           <table className="file-handler-table">
-            <thead>
-              <tr>
-                {columns.map((col, index) => (
-                  <th key={index} className="file-handler-table-header">
-                    {col} {editableColumns.includes(col) ? "(Editable)" : ""}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+           
+          <thead>
+  <tr>
+    <th className="file-handler-table-header">Sno.</th>
+    {columns.map((col, index) =>
+      index !== 0 && (
+        <th key={index} className="file-handler-table-header">
+          {col} {editableColumns.includes(col) ? "(Editable)" : ""}
+        </th>
+      )
+    )}
+  </tr>
+</thead>
+
+
             <tbody>
               {rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="file-handler-table-row">
@@ -154,7 +160,8 @@ const ExcelHandler = () => {
                         type="text"
                         value={cell || ""}
                         onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                        className="file-handler-table-input"
+                        className={`file-handler-table-input ${!editableColumns.includes(columns[colIndex]) ? "not-editable":""}`} 
+                        
                         readOnly={!editableColumns.includes(columns[colIndex])}
                       />
                     </td>

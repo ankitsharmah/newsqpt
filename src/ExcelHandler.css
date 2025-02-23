@@ -67,7 +67,9 @@
     width: 100%;
     border-collapse: collapse;
   }
-  
+  .not-editable{
+    cursor: not-allowed;
+  }
   .file-handler-table-header {
     background-color: #b2b3b5;
     padding: 8px;
@@ -79,7 +81,7 @@
   }
   
   .file-handler-table-cell {
-    padding: 8px;
+    padding:2px 4px;
     border: 1px solid #ddd;
   }
   
