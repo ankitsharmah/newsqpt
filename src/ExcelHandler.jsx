@@ -3,7 +3,8 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import "./ExcelHandler.css"
+import "./ExcelHandler.css"; // Import the CSS file
+
 const ExcelHandler = () => {
   const [columns, setColumns] = useState([]);
   const [rows, setRows] = useState([]);
@@ -69,7 +70,6 @@ const ExcelHandler = () => {
   };
 
   const exportData = () => {
-    console.log("called")
     if (fileFormat === "xlsx" || fileFormat === "csv") {
       const sheetData = [columns, ...rows];
       const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
@@ -97,53 +97,49 @@ const ExcelHandler = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Excel File Editor</h2>
+    <div className="file-handler-container">
+      <h2 className="file-handler-title">Excel File Editor</h2>
 
-      <label className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md shadow-md mb-4">
+      <label className="file-handler-upload-btn">
         Upload Excel File
-        <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
+        <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="file-handler-hidden-input" />
       </label>
 
-      <div className="flex items-center space-x-2 mb-4">
+      <div className="file-handler-input-group">
         <input
           type="text"
           placeholder="Enter new column name"
           value={newField}
           onChange={(e) => setNewField(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-2 focus:ring focus:ring-blue-300"
+          className="file-handler-input"
         />
-        <button onClick={addNewField} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md shadow-md">
-          Add Column
-        </button>
+        <button onClick={addNewField} className="file-handler-add-btn">Add Column</button>
       </div>
 
-      <div className="flex space-x-3 mb-4">
+      <div className="file-handler-export-group">
         <input
           type="text"
           placeholder="Enter file name"
           value={fileName}
           onChange={(e) => setFileName(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-2"
+          className="file-handler-input"
         />
-        <select value={fileFormat} onChange={(e) => setFileFormat(e.target.value)} className="border border-gray-300 rounded-md px-3 py-2">
+        <select value={fileFormat} onChange={(e) => setFileFormat(e.target.value)} className="file-handler-select">
           <option value="xlsx">Excel (.xlsx)</option>
           <option value="csv">CSV (.csv)</option>
           <option value="pdf">PDF (.pdf)</option>
           <option value="json">JSON (.json)</option>
         </select>
-        <button onClick={exportData} className="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2 rounded-md shadow-md">
-          Export
-        </button>
+        <button onClick={exportData} className="file-handler-export-btn">Export</button>
       </div>
 
       {rows.length > 0 && (
-        <div className="overflow-x-auto bg-white shadow-md rounded-lg p-4">
-          <table className="w-full border border-gray-300 rounded-md">
+        <div className="file-handler-table-container">
+          <table className="file-handler-table">
             <thead>
-              <tr className="bg-gray-200">
+              <tr>
                 {columns.map((col, index) => (
-                  <th key={index} className="border border-gray-300 px-4 py-2 text-left font-semibold">
+                  <th key={index} className="file-handler-table-header">
                     {col} {editableColumns.includes(col) ? "(Editable)" : ""}
                   </th>
                 ))}
@@ -151,16 +147,14 @@ const ExcelHandler = () => {
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="hover:bg-gray-100">
+                <tr key={rowIndex} className="file-handler-table-row">
                   {row.map((cell, colIndex) => (
-                    <td key={colIndex} className="border border-gray-300 px-4 py-2">
+                    <td key={colIndex} className="file-handler-table-cell">
                       <input
                         type="text"
                         value={cell || ""}
                         onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                        className={`w-full border-none bg-transparent focus:outline-none ${
-                          editableColumns.includes(columns[colIndex]) ? "text-black" : "text-gray-500 cursor-not-allowed"
-                        }`}
+                        className="file-handler-table-input"
                         readOnly={!editableColumns.includes(columns[colIndex])}
                       />
                     </td>
