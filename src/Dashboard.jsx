@@ -29,7 +29,7 @@ const Dashboard = () => {
   const fetchSpreadsheets = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:9000/api/spreadsheets');
+      const response = await axios.get('https://excel-backend-wl01.onrender.com/api/spreadsheets');
       setSpreadsheets(response.data);
     } catch (error) {
       console.error('Error fetching spreadsheets:', error);
@@ -44,7 +44,7 @@ const Dashboard = () => {
     
     try {
       setUploading(true);
-      const response = await axios.post('http://localhost:9000/api/upload', formData, {
+      const response = await axios.post('https://excel-backend-wl01.onrender.com/api/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -74,7 +74,7 @@ const Dashboard = () => {
     if (!selectedSpreadsheet) return;
     
     try {
-      await axios.delete(`http://localhost:9000/api/spreadsheets/${selectedSpreadsheet._id}`);
+      await axios.delete(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${selectedSpreadsheet._id}`);
       setDeleteDialogOpen(false);
       setSelectedSpreadsheet(null);
       await fetchSpreadsheets();
