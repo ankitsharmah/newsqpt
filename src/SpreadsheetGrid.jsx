@@ -1,53 +1,42 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { 
   Box, TextField, MenuItem, Select, Checkbox, 
-  FormControl, IconButton
+  FormControl
 } from '@mui/material';
 import { FixedSizeGrid as Grid } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 
-const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
+const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices, scrollContainerRef }) => {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [gridKey, setGridKey] = useState(0); // Key to force Grid re-render
+  const [gridKey, setGridKey] = useState(0);
 
-  // When columns change, force Grid to re-render
   useEffect(() => {
     setGridKey(prevKey => prevKey + 1);
   }, [columns.length]);
 
-  // Get the actual data index from the filtered view index
   const getActualRowIndex = useCallback((viewIndex) => {
-    // If filteredIndices is provided, use it to map viewIndex to actual index
-    // Otherwise, viewIndex is the same as the actual index
     return filteredIndices ? filteredIndices[viewIndex] : viewIndex;
   }, [filteredIndices]);
 
-  // Get the filtered data
   const getFilteredData = useCallback(() => {
     if (!filteredIndices) return data;
     return filteredIndices.map(index => data[index]);
   }, [data, filteredIndices]);
 
-  // Start editing a cell
   const startEditing = useCallback((viewRowIndex, columnName, value) => {
     setEditingCell({ viewRowIndex, columnName });
     setEditValue(value !== null && value !== undefined ? value : '');
   }, []);
 
-  // Save the edited value
   const saveEdit = useCallback(() => {
     if (editingCell) {
-      // Convert view index to actual data index
       const actualRowIndex = getActualRowIndex(editingCell.viewRowIndex);
       onCellChange(actualRowIndex, editingCell.columnName, editValue);
       setEditingCell(null);
     }
   }, [editingCell, editValue, onCellChange, getActualRowIndex]);
 
-  // Handle key presses while editing
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter') {
       saveEdit();
@@ -56,19 +45,16 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
     }
   }, [saveEdit]);
 
-  // Handle checkbox change
   const handleCheckboxChange = useCallback((viewRowIndex, columnName, checked) => {
     const actualRowIndex = getActualRowIndex(viewRowIndex);
     onCellChange(actualRowIndex, columnName, checked);
   }, [onCellChange, getActualRowIndex]);
 
-  // Handle dropdown change
   const handleDropdownChange = useCallback((viewRowIndex, columnName, value) => {
     const actualRowIndex = getActualRowIndex(viewRowIndex);
     onCellChange(actualRowIndex, columnName, value);
   }, [onCellChange, getActualRowIndex]);
 
-  // Render a cell based on its type
   const renderCell = useCallback((viewRowIndex, columnIndex) => {
     const filteredData = getFilteredData();
     
@@ -86,7 +72,6 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
                      editingCell.columnName === columnName;
     const isLocked = columns[columnIndex].locked;
 
-    // Handle rendering based on column type
     switch (columnType) {
       case 'checkbox':
         return (
@@ -224,7 +209,6 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
     }
   }, [columns, editingCell, editValue, handleKeyPress, saveEdit, startEditing, handleCheckboxChange, handleDropdownChange, getFilteredData]);
 
-  // Render cell using react-window for virtualization
   const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
     return (
       <div 
@@ -240,14 +224,12 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
     );
   }, [renderCell]);
 
-  // Get the displayed data
   const displayData = getFilteredData();
 
   return (
     <Box sx={{ width: '100%', height: '100%' }}>
       <AutoSizer>
         {({ height, width }) => {
-          // Calculate column width as a number
           const columnWidth = Math.max(200, width / columns.length);
           
           return (
@@ -259,6 +241,7 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices }) => {
               rowCount={displayData.length}
               rowHeight={40}
               width={width}
+              outerRef={scrollContainerRef}
             >
               {Cell}
             </Grid>

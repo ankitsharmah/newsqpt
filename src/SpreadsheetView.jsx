@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Container, Box, Typography, CircularProgress,
@@ -41,6 +41,9 @@ const SpreadsheetView = () => {
   const [newColumnType, setNewColumnType] = useState('text');
   const [dropdownOptions, setDropdownOptions] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  
+  // For common scroll container
+  const [scrollContainerId] = useState(`scroll-container-${Date.now()}`);
 
   useEffect(() => {
     fetchSpreadsheetData();
@@ -66,6 +69,8 @@ const SpreadsheetView = () => {
 
   // Apply filters to data
   useEffect(() => {
+    if (!data || data.length === 0) return;
+    
     let result = [...data];
     let indices = [];
     
@@ -76,6 +81,7 @@ const SpreadsheetView = () => {
       // Check each filter
       for (const key of Object.keys(filters)) {
         const filter = filters[key];
+        if (!filter) continue; // Skip null filters (cleared ones)
         
         if (filter.type === 'text' && filter.value) {
           const cellValue = String(row[key] || '').toLowerCase();
@@ -153,22 +159,38 @@ const SpreadsheetView = () => {
   };
 
   const handleCellChange = useCallback((rowIndex, field, value) => {
-    // Update local state
+    // Get the actual index if we're looking at filtered data
+    const actualIndex = filteredIndices ? filteredIndices[rowIndex] : rowIndex;
+    
+    // Update the main data array
     setData(prevData => {
       const newData = [...prevData];
-      newData[rowIndex] = {
-        ...newData[rowIndex],
+      newData[actualIndex] = {
+        ...newData[actualIndex],
         [field]: value
       };
       return newData;
     });
     
+    // IMPORTANT: Update the filtered data too so UI reflects changes immediately
+    if (filteredIndices) {
+      setFilteredData(prevFiltered => {
+        const newFiltered = [...prevFiltered];
+        // Find the correct row in filtered data (which matches rowIndex)
+        newFiltered[rowIndex] = {
+          ...newFiltered[rowIndex],
+          [field]: value
+        };
+        return newFiltered;
+      });
+    }
+    
     // Add to pending updates
     setPendingUpdates(prev => [
       ...prev,
-      { rowIndex, field, value }
+      { rowIndex: actualIndex, field, value }
     ]);
-  }, []);
+  }, [filteredIndices]);
   
   // Debounced save function to avoid too many API calls
   const saveChanges = useCallback(debounce(async () => {
@@ -346,14 +368,23 @@ const SpreadsheetView = () => {
 
   if (loading && !spreadsheet) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+      <Container sx={{ display: 'flex', justifyContent: 'center', width:'95vw', alignItems: 'center', height: '80vh' }}>
         <CircularProgress />
       </Container>
     );
   }
 
+  // Common styles for synchronized scrolling
+  const scrollContainerStyle = {
+    maxWidth: '100%',
+    overflow: 'auto',
+  };
+
+  // Column width specification for consistent sizing
+  const columnWidths = columns.map(col => `minmax(200px, 1fr)`).join(' ');
+
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4, height: 'calc(100vh - 100px)' }}>
+    <div style={{ width:'100vw', height: 'calc(100vh - 100px)' }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5" component="h1">
           {spreadsheet?.name}
@@ -395,61 +426,84 @@ const SpreadsheetView = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ height: 'calc(100% - 60px)', overflow: 'scroll' }}>
-        {/* Column Headers */}
-        <Box
-          sx={{
-            display: 'flex',
+      {/* Main Container with CSS Grid for synchronized scrolling */}
+      <Paper 
+        sx={{ 
+          height: 'calc(100% - 60px)', 
+          width: '98vw', 
+          overflow: 'hidden',
+          display: 'flex', 
+          flexDirection: 'column'
+        }}
+      >
+        {/* Use CSS Grid for synchronized scrolling between header and content */}
+        <div id={scrollContainerId} style={{ 
+          display: 'grid',
+          gridTemplateRows: 'auto 1fr',
+          height: '100%',
+          overflow: 'hidden'
+        }}>
+          {/* Header row with synchronized scrolling */}
+          <div style={{
+            overflow: 'hidden',
             borderBottom: '1px solid #e0e0e0',
-            backgroundColor: '#f5f5f5',
-            height: '40px',
-            '& > div': {
-              padding: '0 8px',
-              display: 'flex',
-              alignItems: 'center',
-              borderRight: '1px solid #e0e0e0',
-              fontWeight: 'bold',
-              position: 'relative',
-              cursor: 'pointer',
-            },
-          }}
-        >
-          {columns.map((column) => 
-            {
-                return  <Box
-              key={column.name}
-              sx={{ 
-                minWidth: '200px', 
-                flex: 1,
-                backgroundColor: column.locked ? '#cdcdcd' : 'inherit',
-              }}
-              onClick={(e) => handleColumnClick(e, column.name)}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <Typography variant="body2" noWrap>
-                  {column.name}
-                </Typography>
-                <Box>
-                  {column.locked && (
-                    <LockIcon fontSize="small" sx={{ marginLeft: 1, color: 'text.secondary' }} />
-                  )}
-                  {getFilterIcon(column.name)}
-                  {getSortIcon(column.name)}
-                </Box>
-              </Box>
-            </Box>}
-          )}
-        </Box>
+            backgroundColor: '#f5f5f5'
+          }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: columnWidths,
+              height: '40px',
+              overflow: 'auto',
+              scrollbarWidth: 'none', // Firefox
+              msOverflowStyle: 'none', // IE
+              '::-webkit-scrollbar': { display: 'none' } // Chrome/Safari/Opera
+            }}>
+              {columns.map((column) => (
+                <div
+                  key={column.name}
+                  onClick={(e) => handleColumnClick(e, column.name)}
+                  style={{
+                    padding: '0 8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRight: '1px solid #e0e0e0',
+                    backgroundColor: column.locked ? '#cdcdcd' : 'inherit',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <Typography variant="body2" noWrap>
+                      {column.name}
+                    </Typography>
+                    <Box>
+                      {column.locked && (
+                        <LockIcon fontSize="small" sx={{ marginLeft: 1, color: 'text.secondary' }} />
+                      )}
+                      {getFilterIcon(column.name)}
+                      {getSortIcon(column.name)}
+                    </Box>
+                  </Box>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Spreadsheet Grid */}
-        <Box sx={{ height: 'calc(100% - 40px)' }}>
-          <SpreadsheetGrid 
-            data={data} 
-            columns={columns}
-            onCellChange={handleCellChange}
-            filteredIndices={filteredIndices}
-          />
-        </Box>
+          {/* Grid container with the same column layout for alignment */}
+          <div style={{ overflow: 'hidden', height: '100%' }}>
+            {/* Pass scrollContainerId to SpreadsheetGrid to enable synchronized scrolling */}
+            <SpreadsheetGrid 
+              data={filteredIndices ? filteredData : data} 
+              columns={columns}
+              onCellChange={handleCellChange}
+              filteredIndices={null}
+              scrollContainerId={scrollContainerId}
+              columnWidths={columnWidths}
+            />
+          </div>
+        </div>
       </Paper>
 
       {/* Column Context Menu */}
@@ -530,6 +584,7 @@ const SpreadsheetView = () => {
             </FormControl>
           </Box>
           
+          
           {newColumnType === 'dropdown' && (
             <Box sx={{ mt: 2 }}>
               <TextField
@@ -550,7 +605,7 @@ const SpreadsheetView = () => {
           <Button onClick={handleAddNewColumn} variant="contained">Add</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </div>
   );
 };
 

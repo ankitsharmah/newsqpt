@@ -9,6 +9,7 @@ import ExcelToJson from './ExceltoJson.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {/* <ExcelHandler /> */}
-  <App />
+
+    <App />
   </StrictMode>,
 )

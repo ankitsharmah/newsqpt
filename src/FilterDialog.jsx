@@ -30,7 +30,7 @@ const FilterDialog = ({ open, onClose, column, currentFilter, onApply, data }) =
     }
     
     // Auto-detect filter type based on data
-    if (data.length > 0 && column) {
+    if (data && data.length > 0 && column) {
       const sampleValues = data
         .slice(0, 10)
         .map(row => row[column])
@@ -62,7 +62,9 @@ const FilterDialog = ({ open, onClose, column, currentFilter, onApply, data }) =
   };
 
   const handleClear = () => {
+    // Pass null to remove the filter completely
     onApply(column, null);
+    onClose(); // Close the dialog after clearing
   };
 
   const handleTabChange = (event, newValue) => {
@@ -71,7 +73,14 @@ const FilterDialog = ({ open, onClose, column, currentFilter, onApply, data }) =
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="xs" 
+      fullWidth
+      // Prevent errors when column is null during transitions
+      aria-labelledby={column ? `filter-dialog-${column}` : 'filter-dialog'}
+    >
       <DialogTitle>
         Filter: {column}
       </DialogTitle>
