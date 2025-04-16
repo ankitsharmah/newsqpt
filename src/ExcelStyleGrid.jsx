@@ -54,7 +54,7 @@ const ExcelStyleGrid = () => {
   useEffect(() => {
     const fetchData = async () => {
       const res = await axios.get(
-        'http://localhost:9000/api/spreadsheets/67fb9e3099cdc37b2013323c'
+        'https://excel-backend-wl01.onrender.com/api/spreadsheets/67fb9e3099cdc37b2013323c'
       );
       setColumns(res.data.columns || []);
       setRows(res.data.data || []);

@@ -18,7 +18,7 @@ const ExcelView = () => {
 
   const fetchData = async () => {
     try {
-      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}`);
+      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
       setData(response.data.data || []);
       setColumns(response.data.columns || []);
     } catch (error) {
@@ -49,7 +49,7 @@ const ExcelView = () => {
     setEditingCell(null);
 
     try {
-      await axios.put(`http://localhost:9000/api/spreadsheets/${id}/data`, {
+      await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/data`, {
         rowIndex,
         columnName,
         value

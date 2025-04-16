@@ -277,7 +277,7 @@ const SpreadsheetView = () => {
   const fetchSpreadsheetData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}`);
+      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
       
       // Set all state
       setSpreadsheet(response.data);
@@ -439,7 +439,7 @@ const SpreadsheetView = () => {
     
     try {
       setIsSaving(true);
-      await axios.put(`http://localhost:9000/api/spreadsheets/${id}/data`, {
+      await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/data`, {
         updates: pendingUpdates
       });
       setPendingUpdates([]);
@@ -504,7 +504,7 @@ const SpreadsheetView = () => {
       if (!column) return;
       
       const response = await axios.put(
-        `http://localhost:9000/api/spreadsheets/${id}/columns/${columnName}/lock`,
+        `https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnName}/lock`,
         { locked: !column.locked }
       );
         
@@ -539,7 +539,7 @@ const SpreadsheetView = () => {
         columnData.options = dropdownOptions.split(',').map(option => option.trim());
       }
       
-      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/column`, columnData);
+      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/column`, columnData);
       
       // Refresh data after adding column to ensure we have the latest state
       fetchSpreadsheetData();
@@ -562,7 +562,7 @@ const SpreadsheetView = () => {
         newRow[col.name] = null;
       });
       
-      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/row`, newRow);
+      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/row`, newRow);
       
       // Add to data state
       setData(prevData => [...prevData, newRow]);
@@ -577,7 +577,7 @@ const SpreadsheetView = () => {
       setIsDownloading(true);
       
       // Request Excel download from server
-      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}/download`, {
+      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/download`, {
         responseType: 'blob',  // Important for binary data
       });
       
