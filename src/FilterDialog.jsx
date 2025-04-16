@@ -13,7 +13,7 @@ const FilterDialog = ({ open, onClose, column, currentFilter, onApply, data }) =
   const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => {
-    if (currentFilter) {
+    if (Object.keys(currentFilter).length>0) {
       setFilterType(currentFilter.type || 'text');
       if (currentFilter.type === 'text') {
         setTextValue(currentFilter.value || '');

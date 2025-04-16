@@ -16,9 +16,235 @@ import SaveIcon from '@mui/icons-material/Save';
 import DownloadIcon from '@mui/icons-material/Download';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
+import { VariableSizeGrid as Grid } from 'react-window';
 
-import SpreadsheetGrid from './SpreadsheetGrid';
 import FilterDialog from './FilterDialog';
+
+// Custom Cell component
+const Cell = ({ columnIndex, rowIndex, style, data }) => {
+  // Special case for sequence number column (columnIndex === 0)
+  if (columnIndex === 0) {
+    return (
+      <div
+        style={{
+          ...style,
+          boxSizing: 'border-box',
+          border: '1px solid #ddd',
+          padding: '6px',
+          backgroundColor: rowIndex % 2 === 0 ? '#fff' : '#f9f9f9',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          color: '#666'
+        }}
+      >
+        {rowIndex + 1}
+      </div>
+    );
+  }
+  
+  // Adjust columnIndex to get the actual column (subtract 1 because of seq column)
+  const actualColumnIndex = columnIndex - 1;
+  
+  const { rows, columns, onCellChange, editingCell, setEditingCell, 
+          editValue, setEditValue, saveEdit, handleKeyPress } = data;
+  
+  const row = rows[rowIndex];
+  const column = columns[actualColumnIndex];
+  const columnKey = column?.name;
+  const columnType = column?.type || 'text';
+  const cellValue = row?.[columnKey];
+  const isLocked = column?.locked;
+  
+  const isEditing = editingCell && 
+                   editingCell.rowIndex === rowIndex && 
+                   editingCell.columnName === columnKey;
+
+  const startEditing = () => {
+    if (isLocked) return;
+    setEditingCell({ rowIndex, columnName: columnKey });
+    setEditValue(cellValue !== null && cellValue !== undefined ? cellValue : '');
+  };
+
+  // Handle different cell types
+  const renderCellContent = () => {
+    switch (columnType) {
+      case 'checkbox':
+        return (
+          <Checkbox
+            checked={Boolean(cellValue)}
+            onChange={(e) => onCellChange(rowIndex, columnKey, e.target.checked)}
+            disabled={isLocked}
+          />
+        );
+        
+      case 'dropdown':
+        const options = column.options || [];
+        return (
+          <FormControl fullWidth size="small" disabled={isLocked}>
+            <Select
+              value={cellValue || ''}
+              onChange={(e) => onCellChange(rowIndex, columnKey, e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {options.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+        
+      case 'date':
+        if (isEditing) {
+          return (
+            <TextField
+              type="date"
+              fullWidth
+              size="small"
+              value={editValue || ''}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onBlur={saveEdit}
+              autoFocus
+            />
+          );
+        }
+        return cellValue || '';
+        
+      case 'number':
+        if (isEditing) {
+          return (
+            <TextField
+              type="number"
+              fullWidth
+              size="small"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onBlur={saveEdit}
+              autoFocus
+            />
+          );
+        }
+        return cellValue !== null && cellValue !== undefined ? cellValue : '';
+        
+      case 'text':
+      default:
+        if (isEditing) {
+          return (
+            <TextField
+              fullWidth
+              size="small"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onBlur={saveEdit}
+              autoFocus
+            />
+          );
+        }
+        return cellValue !== null && cellValue !== undefined ? cellValue : '';
+    }
+  };
+
+  return (
+    <div
+      style={{
+        ...style,
+        boxSizing: 'border-box',
+        border: '1px solid #ddd',
+        padding: isEditing ? '2px' : '6px',
+        backgroundColor: isLocked ? '#f0f0f0' : (rowIndex % 2 === 0 ? '#fff' : '#f9f9f9'),
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        cursor: isLocked ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center'
+      }}
+      onClick={() => !isLocked && !isEditing && startEditing()}
+    >
+      {renderCellContent()}
+    </div>
+  );
+};
+
+// Custom HeaderCell component
+const HeaderCell = ({ columnIndex, style, data }) => {
+  const { columns, handleColumnClick, sortConfig, filters } = data;
+  
+  // Special case for sequence number column (columnIndex === 0)
+  if (columnIndex === 0) {
+    return (
+      <div
+        style={{
+          ...style,
+          boxSizing: 'border-box',
+          border: '1px solid #ccc',
+          fontWeight: 'bold',
+          backgroundColor: '#f3f3f3',
+          padding: '6px',
+          whiteSpace: 'nowrap',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <span>#</span>
+      </div>
+    );
+  }
+  
+  // Adjust columnIndex to get the actual column (subtract 1 because of seq column)
+  const actualColumnIndex = columnIndex - 1;
+  const column = columns[actualColumnIndex];
+  const columnName = column?.name;
+  const isLocked = column?.locked;
+  
+  const getSortIcon = () => {
+    if (sortConfig.key !== columnName) return null;
+    return sortConfig.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />;
+  };
+
+  const getFilterIcon = () => {
+    return filters[columnName] ? <FilterListIcon color="primaryy" fontSize="small" /> : <FilterListIcon fontSize="small" />;
+  };
+
+  return (
+    <div
+      style={{
+        ...style,
+        boxSizing: 'border-box',
+        border: '1px solid #ccc',
+        fontWeight: 'bold',
+        backgroundColor: isLocked ? '#e0e0e0' : '#f3f3f3',
+        padding: '6px',
+        whiteSpace: 'nowrap',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        cursor: 'pointer'
+      }}
+      onClick={(e) => handleColumnClick(e, columnName)}
+    >
+      <span>{columnName}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px'}}>
+        {isLocked && <LockIcon fontSize="small" style={{ color: '#555' }} />}
+        {getFilterIcon()}
+        {getSortIcon()}
+      </div>
+    </div>
+  );
+};
 
 const SpreadsheetView = () => {
   const { id } = useParams();
@@ -41,10 +267,9 @@ const SpreadsheetView = () => {
   const [newColumnType, setNewColumnType] = useState('text');
   const [dropdownOptions, setDropdownOptions] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
+  const [editValue, setEditValue] = useState('');
   
-  // For common scroll container
-  const [scrollContainerId] = useState(`scroll-container-${Date.now()}`);
-
   useEffect(() => {
     fetchSpreadsheetData();
   }, [id]);
@@ -52,7 +277,7 @@ const SpreadsheetView = () => {
   const fetchSpreadsheetData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
+      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}`);
       
       // Set all state
       setSpreadsheet(response.data);
@@ -191,6 +416,22 @@ const SpreadsheetView = () => {
       { rowIndex: actualIndex, field, value }
     ]);
   }, [filteredIndices]);
+
+  const saveEdit = useCallback(() => {
+    if (editingCell) {
+      const actualRowIndex = filteredIndices ? filteredIndices[editingCell.rowIndex] : editingCell.rowIndex;
+      handleCellChange(editingCell.rowIndex, editingCell.columnName, editValue);
+      setEditingCell(null);
+    }
+  }, [editingCell, editValue, handleCellChange, filteredIndices]);
+
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  }, [saveEdit]);
   
   // Debounced save function to avoid too many API calls
   const saveChanges = useCallback(debounce(async () => {
@@ -198,7 +439,7 @@ const SpreadsheetView = () => {
     
     try {
       setIsSaving(true);
-      await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/data`, {
+      await axios.put(`http://localhost:9000/api/spreadsheets/${id}/data`, {
         updates: pendingUpdates
       });
       setPendingUpdates([]);
@@ -263,7 +504,7 @@ const SpreadsheetView = () => {
       if (!column) return;
       
       const response = await axios.put(
-        `https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnName}/lock`,
+        `http://localhost:9000/api/spreadsheets/${id}/columns/${columnName}/lock`,
         { locked: !column.locked }
       );
         
@@ -298,7 +539,7 @@ const SpreadsheetView = () => {
         columnData.options = dropdownOptions.split(',').map(option => option.trim());
       }
       
-      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/column`, columnData);
+      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/column`, columnData);
       
       // Refresh data after adding column to ensure we have the latest state
       fetchSpreadsheetData();
@@ -321,7 +562,7 @@ const SpreadsheetView = () => {
         newRow[col.name] = null;
       });
       
-      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/row`, newRow);
+      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/row`, newRow);
       
       // Add to data state
       setData(prevData => [...prevData, newRow]);
@@ -336,7 +577,7 @@ const SpreadsheetView = () => {
       setIsDownloading(true);
       
       // Request Excel download from server
-      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/download`, {
+      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}/download`, {
         responseType: 'blob',  // Important for binary data
       });
       
@@ -357,38 +598,40 @@ const SpreadsheetView = () => {
     }
   };
 
-  const getSortIcon = (columnName) => {
-    if (sortConfig.key !== columnName) return null;
-    return sortConfig.direction === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />;
-  };
-
-  const getFilterIcon = (columnName) => {
-    return filters[columnName] ? <FilterListIcon color="primary" fontSize="small" /> : <FilterListIcon fontSize="small" />;
-  };
-
   if (loading && !spreadsheet) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', width:'95vw', alignItems: 'center', height: '80vh' }}>
+      <Container sx={{ display: 'flex', justifyContent: 'center', width:'95vw', alignItems: 'center', height: '95vh' }}>
         <CircularProgress />
       </Container>
     );
   }
 
-  // Common styles for synchronized scrolling
-  const scrollContainerStyle = {
-    maxWidth: '100%',
-    overflow: 'auto',
-  };
-
-  // Column width specification for consistent sizing
-  const columnWidths = columns.map(col => `minmax(200px, 1fr)`).join(' ');
+  const rowCount = filteredData?.length || 0;
+  const columnCount = columns?.length || 0;
+  const totalColumnCount = columnCount + 1; // Add 1 for the sequence number column
+  const rowHeight = 40;
+  const getColumnWidth = index => (index === 0 ? 60 : 200); // Sequence column is narrower
+  const totalGridWidth = 60 + (columnCount * 200); // 60px for seq column + rest for data columns
+  const gridHeight = Math.min(650, rowCount * rowHeight + rowHeight); // Add rowHeight for header
+  // console.log(gridHeight)
+  // Calculate total and filtered rows count
+  const totalRows = data?.length || 0;
+  const filteredRows = filteredData?.length || 0;
+  const isFiltered = Object.keys(filters).length > 0;
 
   return (
-    <div style={{ width:'100vw', height: 'calc(100vh - 100px)' }}>
+    <div style={{ width:'98vw', height: 'calc(100vh - 100px)',margin:"auto"}}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5" component="h1">
-          {spreadsheet?.name}
-        </Typography>
+        <Box>
+          <Typography variant="h5" component="h1">
+            {spreadsheet?.name}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {isFiltered 
+              ? `Showing ${filteredRows} of ${totalRows} rows` 
+              : `Total rows: ${totalRows}`}
+          </Typography>
+        </Box>
         <Box>
           <Button
             variant="outlined"
@@ -426,82 +669,56 @@ const SpreadsheetView = () => {
         </Box>
       </Box>
 
-      {/* Main Container with CSS Grid for synchronized scrolling */}
       <Paper 
         sx={{ 
           height: 'calc(100% - 60px)', 
           width: '98vw', 
           overflow: 'hidden',
           display: 'flex', 
+          // background:"red",
           flexDirection: 'column'
         }}
       >
-        {/* Use CSS Grid for synchronized scrolling between header and content */}
-        <div id={scrollContainerId} style={{ 
-          display: 'grid',
-          gridTemplateRows: 'auto 1fr',
-          height: '100%',
-          overflow: 'hidden'
-        }}>
-          {/* Header row with synchronized scrolling */}
-          <div style={{
-            overflow: 'hidden',
-            borderBottom: '1px solid #e0e0e0',
-            backgroundColor: '#f5f5f5'
-          }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: columnWidths,
-              height: '40px',
-              overflow: 'auto',
-              scrollbarWidth: 'none', // Firefox
-              msOverflowStyle: 'none', // IE
-              '::-webkit-scrollbar': { display: 'none' } // Chrome/Safari/Opera
-            }}>
-              {columns.map((column) => (
-                <div
-                  key={column.name}
-                  onClick={(e) => handleColumnClick(e, column.name)}
-                  style={{
-                    padding: '0 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    borderRight: '1px solid #e0e0e0',
-                    backgroundColor: column.locked ? '#cdcdcd' : 'inherit',
-                    cursor: 'pointer',
-                    overflow: 'hidden',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                    <Typography variant="body2" noWrap>
-                      {column.name}
-                    </Typography>
-                    <Box>
-                      {column.locked && (
-                        <LockIcon fontSize="small" sx={{ marginLeft: 1, color: 'text.secondary' }} />
-                      )}
-                      {getFilterIcon(column.name)}
-                      {getSortIcon(column.name)}
-                    </Box>
-                  </Box>
-                </div>
-              ))}
+        <div style={{ width: '100%', height: '100%', overflow: 'scroll' }}>
+          <div style={{ width: totalGridWidth, height: gridHeight, overflow: 'auto' }}>
+            {/* Header */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+              <Grid
+                columnCount={totalColumnCount}
+                rowCount={1}
+                columnWidth={getColumnWidth}
+                rowHeight={index => rowHeight}
+                height={rowHeight}
+                width={totalGridWidth}
+                itemData={{ columns, handleColumnClick, sortConfig, filters }}
+                style={{ overflow: 'scroll'}}
+              >
+                {HeaderCell}
+              </Grid>
             </div>
-          </div>
 
-          {/* Grid container with the same column layout for alignment */}
-          <div style={{ overflow: 'hidden', height: '100%' }}>
-            {/* Pass scrollContainerId to SpreadsheetGrid to enable synchronized scrolling */}
-            <SpreadsheetGrid 
-              data={filteredIndices ? filteredData : data} 
-              columns={columns}
-              onCellChange={handleCellChange}
-              filteredIndices={null}
-              scrollContainerId={scrollContainerId}
-              columnWidths={columnWidths}
-            />
+            {/* Body */}
+            <Grid
+              columnCount={totalColumnCount}
+              rowCount={rowCount}
+              columnWidth={getColumnWidth}
+              rowHeight={index => rowHeight}
+              height={gridHeight - rowHeight}
+              width={totalGridWidth}
+              itemData={{ 
+                rows: filteredData, 
+                columns, 
+                onCellChange: handleCellChange,
+                editingCell,
+                setEditingCell,
+                editValue,
+                setEditValue,
+                saveEdit,
+                handleKeyPress
+              }}
+            >
+              {Cell}
+            </Grid>
           </div>
         </div>
       </Paper>
