@@ -24,7 +24,7 @@ import FilterDialog from './FilterDialog';
 import { toast } from 'react-toastify';
 
 // Socket URL - use environment variable in production
-const SOCKET_URL = 'https://excel-backend-wl01.onrender.com';
+const SOCKET_URL = 'http://localhost:9000';
 
 // Custom Cell component
 const Cell = ({ columnIndex, rowIndex, style, data }) => {
@@ -52,12 +52,17 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
       </div>
     );
   }
-  
+  const handleFocus = () => {
+    console.log('Cell focused:', rowIndex, columnKey);
+    if (!isLocked && data.onfocus) {
+      data.onfocus(rowIndex, columnKey);
+    }
+  };
   // Adjust columnIndex to get the actual column (subtract 1 because of seq column)
   const actualColumnIndex = columnIndex - 1;
   
   const { rows, columns, onCellChange, editingCell, setEditingCell, 
-          editValue, setEditValue, saveEdit, handleKeyPress } = data;
+          editValue, setEditValue, saveEdit, handleKeyPress,onfocus } = data;
   
   const row = rows[rowIndex];
   const column = columns[actualColumnIndex];
@@ -85,6 +90,7 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
             checked={Boolean(cellValue)}
             onChange={(e) => onCellChange(rowIndex, columnKey, e.target.checked)}
             disabled={isLocked}
+            onFocus={(e)=>onfocus(rowIndex, columnKey)}
           />
         );
         
@@ -95,6 +101,8 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
             <Select
               value={cellValue || ''}
               onChange={(e) => onCellChange(rowIndex, columnKey, e.target.value)}
+            onFocus={()=>onfocus(rowIndex, columnKey)}
+
               displayEmpty
             >
               <MenuItem value="">
@@ -120,7 +128,10 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyPress}
               onBlur={saveEdit}
+
               autoFocus
+            onFocus={()=>onfocus(rowIndex, columnKey)}
+
             />
           );
         }
@@ -138,6 +149,8 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
               onKeyDown={handleKeyPress}
               onBlur={saveEdit}
               autoFocus
+            onFocus={()=>onfocus(rowIndex, columnKey)}
+
             />
           );
         }
@@ -145,18 +158,23 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
         
       case 'text':
       default:
-        if (isEditing) {
-          return (
-            <TextField
-              fullWidth
-              size="small"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              onBlur={saveEdit}
-              autoFocus
-            />
-          );
+        if (columnType === 'text' || columnType === 'number' || columnType === 'date') {
+          if (isEditing) {
+            return (
+              <div style={{...style, /* existing styles */}}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  onBlur={saveEdit}
+                  autoFocus
+                  onFocus={handleFocus} // Use the handler here
+                />
+              </div>
+            );
+          }
         }
         return cellValue !== null && cellValue !== undefined ? cellValue : '';
     }
@@ -178,6 +196,8 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
         alignItems: 'center'
       }}
       onClick={() => !isLocked && !isEditing && startEditing()}
+      onFocus={handleFocus} // Use the handler here
+
     >
       {renderCellContent()}
     </div>
@@ -311,6 +331,24 @@ const SpreadsheetView = () => {
     socketRef.current.on('columnAdded', (data) => {
       handleRemoteColumnAdded(data);
     });
+    socketRef.current.on('cellEditing', ({ cell, user }) => {
+      console.log(`${user.name} is editing cell [${cell.rowIndex}, ${cell.columnKey}]`);
+      // Optionally highlight that cell or show user's name on UI
+      // setEditingStatus((prev) => ({
+      //   ...prev,
+      //   [`${cell.rowIndex}-${cell.columnKey}`]: user.name
+      // }));
+    });
+    
+    // Listen for cell editing stopped by another user
+    socketRef.current.on('cellEditingStopped', ({ cell }) => {
+      console.log("dtopped",`${cell.rowIndex}-${cell.columnKey}`)
+      // setEditingStatus((prev) => {
+      //   const updated = { ...prev };
+      //   delete updated[`${cell.rowIndex}-${cell.columnKey}`];
+      //   return updated;
+      // });
+    });
     
     // Cleanup on unmount
     return () => {
@@ -321,8 +359,36 @@ const SpreadsheetView = () => {
       saveChanges.flush();
     };
   }, [id]);
-
-
+  const onfocus = useCallback((rowIndex, columnKey) => {
+    console.log('Cell focus triggered:', rowIndex, columnKey);
+    
+    if (!socketRef.current) {
+      console.error('Socket not initialized when trying to emit cellEditing');
+      return;
+    }
+    
+    if (!socketRef.current.connected) {
+      console.error('Socket not connected when trying to emit cellEditing');
+      return;
+    }
+    
+    const eventData = {
+      spreadsheetId: id,
+      cell: { rowIndex, columnKey },
+      user: { id: "user123", name: "ankit" } // Replace with actual user info
+    };
+    
+    console.log('Emitting cellEditing event with data:', eventData);
+    socketRef.current.emit('cellEditing', eventData);
+  }, [id]);
+// useEffect(()=>{
+//   socket.emit("cellEditing", {
+//     id,
+//     cell: { rowIndex, columnKey },
+//     user: { id: userId, name: userName }
+//   });
+  
+// },[])
   useEffect(()=>{
     if(!doneByUser&&notification.message.length>0)
       toast.info(notification.message, {
@@ -432,7 +498,7 @@ const SpreadsheetView = () => {
     setDoneByUser(true);
     try {
       setLoading(true);
-      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
+      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}`);
       
       // Set all state
       setSpreadsheet(response.data);
@@ -541,6 +607,7 @@ const SpreadsheetView = () => {
     setColumnContextMenu(columnName);
   };
 
+
   const closeColumnMenu = () => {
     setAnchorEl(null);
     setColumnContextMenu(null);
@@ -548,6 +615,7 @@ const SpreadsheetView = () => {
 
   const handleCellChange = useCallback((rowIndex, field, value) => {
     // Get the actual index if we're looking at filtered data
+    console.log((rowIndex))
     const actualIndex = filteredIndices ? filteredIndices[rowIndex] : rowIndex;
     
     // Update the main data array
@@ -573,6 +641,14 @@ const SpreadsheetView = () => {
       });
     }
     
+      // socketRef.current.emit('cellEditing', {
+      //   spreadsheetId: id,
+      //   cell: { rowIndex, columnKey },
+      //   user: { id: "iiiii", name: "ankit" }
+      // });
+    
+    
+    
     // Add to pending updates
     setPendingUpdates(prev => [
       ...prev,
@@ -582,11 +658,27 @@ const SpreadsheetView = () => {
 
   const saveEdit = useCallback(() => {
     if (editingCell) {
+      console.log('Saving edit for cell:', editingCell);
       const actualRowIndex = filteredIndices ? filteredIndices[editingCell.rowIndex] : editingCell.rowIndex;
       handleCellChange(editingCell.rowIndex, editingCell.columnName, editValue);
+      
+      // Emit cellEditingStopped event when editing is done
+      if (socketRef.current && socketRef.current.connected) {
+        const stopEditingData = {
+          spreadsheetId: id,
+          cell: { rowIndex: editingCell.rowIndex, columnKey: editingCell.columnName },
+          user: { id: "user123", name: "ankit" }
+        };
+        
+        console.log('Emitting cellEditingStopped event with data:', stopEditingData);
+        socketRef.current.emit('cellEditingStopped', stopEditingData);
+      } else {
+        console.error('Cannot emit cellEditingStopped: socket not connected');
+      }
+      
       setEditingCell(null);
     }
-  }, [editingCell, editValue, handleCellChange, filteredIndices]);
+  }, [editingCell, editValue, handleCellChange, filteredIndices, id]);
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter') {
@@ -602,7 +694,7 @@ const SpreadsheetView = () => {
     
     try {
       setIsSaving(true);
-      await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/data`, {
+      await axios.put(`http://localhost:9000/api/spreadsheets/${id}/data`, {
         updates: pendingUpdates
       });
       setPendingUpdates([]);
@@ -672,7 +764,7 @@ const SpreadsheetView = () => {
       if (!column) return;
       
       const response = await axios.put(
-        `https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnName}/lock`,
+        `http://localhost:9000/api/spreadsheets/${id}/columns/${columnName}/lock`,
         { locked: !column.locked }
       );
         
@@ -722,7 +814,7 @@ const SpreadsheetView = () => {
         columnData.options = dropdownOptions.split(',').map(option => option.trim());
       }
       
-      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/column`, columnData);
+      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/column`, columnData);
       
       // Refresh data after adding column to ensure we have the latest state
       fetchSpreadsheetData();
@@ -761,7 +853,7 @@ const SpreadsheetView = () => {
         newRow[col.name] = null;
       });
       
-      const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/row`, newRow);
+      const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/row`, newRow);
       
       // Add to data state
       setData(prevData => [...prevData, newRow]);
@@ -790,7 +882,7 @@ const SpreadsheetView = () => {
       setIsDownloading(true);
       
       // Request Excel download from server
-      const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/download`, {
+      const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}/download`, {
         responseType: 'blob',  // Important for binary data
       });
       
@@ -944,7 +1036,9 @@ const SpreadsheetView = () => {
                 editValue,
                 setEditValue,
                 saveEdit,
-                handleKeyPress
+                handleKeyPress,
+                onfocus: onfocus, // Make sure it's passed explicitly
+
               }}
             >
               {Cell}
