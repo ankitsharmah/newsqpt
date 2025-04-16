@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Container, Box, Typography, CircularProgress,
   Button, IconButton, Tooltip, Paper, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, FormControl,
-  TextField, Select, InputLabel, FormControlLabel, Checkbox, FormGroup
+  TextField, Select, InputLabel, FormControlLabel, Checkbox, FormGroup,
+  Snackbar, Alert
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -17,8 +18,13 @@ import DownloadIcon from '@mui/icons-material/Download';
 import axios from 'axios';
 import debounce from 'lodash/debounce';
 import { VariableSizeGrid as Grid } from 'react-window';
+import io from 'socket.io-client'; // Import Socket.io client
 
 import FilterDialog from './FilterDialog';
+import { toast } from 'react-toastify';
+
+// Socket URL - use environment variable in production
+const SOCKET_URL = 'https://excel-backend-wl01.onrender.com';
 
 // Custom Cell component
 const Cell = ({ columnIndex, rowIndex, style, data }) => {
@@ -216,7 +222,7 @@ const HeaderCell = ({ columnIndex, style, data }) => {
   };
 
   const getFilterIcon = () => {
-    return filters[columnName] ? <FilterListIcon color="primaryy" fontSize="small" /> : <FilterListIcon fontSize="small" />;
+    return filters[columnName] ? <FilterListIcon color="primary" fontSize="small" /> : <FilterListIcon fontSize="small" />;
   };
 
   return (
@@ -269,12 +275,161 @@ const SpreadsheetView = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  const [doneByUser,setDoneByUser]= useState(false);
+
+  // Socket.io reference
+  const socketRef = useRef(null);
+  // Grid reference for refreshing
+  const gridRef = useRef(null);
   
   useEffect(() => {
     fetchSpreadsheetData();
+    
+    // Initialize Socket.io connection
+    socketRef.current = io(SOCKET_URL);
+    
+    // Join spreadsheet room
+    socketRef.current.emit('joinSpreadsheet', id);
+    
+    // Listen for cell updates from other users
+    socketRef.current.on('cellUpdates', (data) => {
+      handleRemoteCellUpdates(data.updates);
+    });
+    
+    // Listen for column lock changes
+    socketRef.current.on('columnLockChanged', (data) => {
+      handleRemoteColumnLockChange(data);
+    });
+    
+    // Listen for new rows
+    socketRef.current.on('rowAdded', (data) => {
+      handleRemoteRowAdded(data);
+    });
+    
+    // Listen for new columns
+    socketRef.current.on('columnAdded', (data) => {
+      handleRemoteColumnAdded(data);
+    });
+    
+    // Cleanup on unmount
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+      // Clear any pending debounced saves
+      saveChanges.flush();
+    };
   }, [id]);
 
+
+  useEffect(()=>{
+    if(!doneByUser&&notification.message.length>0)
+      toast.info(notification.message, {
+        position: "top-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+        
+        });
+  },[notification])
+
+
+
+  // Handle remote updates received from Socket.io
+  const handleRemoteCellUpdates = (updates) => {
+    // Skip if these are our own updates
+    if (pendingUpdates.some(update => 
+      updates.some(remoteUpdate => 
+        remoteUpdate.rowIndex === update.rowIndex && 
+        remoteUpdate.field === update.field
+      )
+    )) {
+      return;
+    }
+    
+    // Apply remote updates to our data
+    setData(prevData => {
+      const newData = [...prevData];
+      updates.forEach(update => {
+        if (newData[update.rowIndex]) {
+          newData[update.rowIndex] = {
+            ...newData[update.rowIndex],
+            [update.field]: update.value
+          };
+        }
+      });
+      return newData;
+    });
+    
+    // Show notification
+    // setNotification({
+    //   open: true,
+    //   message: 'Changes received from another user',
+    //   severity: 'info'
+    // });
+  };
+
+  const handleRemoteColumnLockChange = (data) => {
+    const { columnName, locked } = data;
+    
+    // Update columns state
+    setColumns(prevColumns => 
+      prevColumns.map(col => 
+        col.name === columnName ? { ...col, locked } : col
+      )
+    );
+    
+    // Show notification
+    setNotification({
+      open: true,
+      message: `Column "${columnName}" was ${locked ? 'locked' : 'unlocked'} by another user`,
+      severity: 'info'
+    });
+  };
+
+  const handleRemoteRowAdded = (data) => {
+    const { rowData } = data;
+    
+    // Add row to data
+    setData(prevData => [...prevData, rowData]);
+    
+    // Show notification
+    setNotification({
+      open: true,
+      message: 'New row added by another user',
+      severity: 'info'
+    });
+  };
+
+  const handleRemoteColumnAdded = (data) => {
+    const { column, defaultValue } = data;
+    
+    // Update our data to include the new column
+    setData(prevData => {
+      return prevData.map(row => ({
+        ...row,
+        [column.name]: defaultValue
+      }));
+    });
+    
+    // Update columns state
+    setColumns(prevColumns => [...prevColumns, column]);
+    
+    // Show notification
+    setNotification({
+      open: true,
+      message: `New column "${column.name}" added by another user`,
+      severity: 'info'
+    });
+  };
+
   const fetchSpreadsheetData = async () => {
+    setDoneByUser(true);
     try {
       setLoading(true);
       const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
@@ -287,8 +442,16 @@ const SpreadsheetView = () => {
       setFilteredIndices(null); // Reset filtered indices
     } catch (error) {
       console.error('Error fetching spreadsheet:', error);
+      setNotification({
+        open: true, 
+        message: 'Error loading spreadsheet: ' + (error.response?.data?.error || error.message),
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        setDoneByUser(false);
+      }, 500);
     }
   };
 
@@ -445,7 +608,11 @@ const SpreadsheetView = () => {
       setPendingUpdates([]);
     } catch (error) {
       console.error('Error saving changes:', error);
-      alert('Error saving changes: ' + (error.response?.data?.error || error.message));
+      setNotification({
+        open: true,
+        message: 'Error saving changes: ' + (error.response?.data?.error || error.message),
+        severity: 'error'
+      });
     } finally {
       setIsSaving(false);
     }
@@ -497,6 +664,7 @@ const SpreadsheetView = () => {
   };
 
   const toggleColumnLock = async (columnName) => {
+    setDoneByUser(true)
     try {
       closeColumnMenu();
       
@@ -509,20 +677,35 @@ const SpreadsheetView = () => {
       );
         
       // Update columns state
-      setColumns(prevColumns => 
-        prevColumns.map(col => 
-          col.name === columnName ? { ...col, locked: !col.locked } : col
-        )
-      );
+      // setColumns(prevColumns => 
+      //   prevColumns.map(col => 
+      //     col.name === columnName ? { ...col, locked: !col.locked } : col
+      //   )
+      // );
+      
+      // Note: We don't need to emit a socket event here,
+      // because the server will do that for us
+      setTimeout(() => {
+        setDoneByUser(false);
+      }, 500);
     } catch (error) {
       console.error('Error toggling column lock:', error);
-      alert('Error toggling column lock: ' + (error.response?.data?.error || error.message));
+      setNotification({
+        open: true,
+        message: 'Error toggling column lock: ' + (error.response?.data?.error || error.message),
+        severity: 'error'
+      });
     }
   };
 
   const handleAddNewColumn = async () => {
+    setDoneByUser(true);
     if (!newColumnName.trim()) {
-      alert('Please enter a column name');
+      setNotification({
+        open: true,
+        message: 'Please enter a column name',
+        severity: 'warning'
+      });
       return;
     }
     
@@ -548,14 +731,30 @@ const SpreadsheetView = () => {
       setNewColumnName('');
       setNewColumnType('text');
       setDropdownOptions('');
+      
+      setNotification({
+        open: true,
+        message: 'New column added successfully',
+        severity: 'success'
+      });
+      setTimeout(() => {
+        setDoneByUser(false);
+      }, 500);
+      // Note: We don't need to emit a socket event here,
+      // because the server will do that for us
     } catch (error) {
       console.error('Error adding column:', error);
-      alert('Error adding column: ' + (error.response?.data?.error || error.message));
+      setNotification({
+        open: true,
+        message: 'Error adding column: ' + (error.response?.data?.error || error.message),
+        severity: 'error'
+      });
     }
   };
 
   const handleAddNewRow = async () => {
     try {
+      setDoneByUser(true);
       // Create empty row with all columns
       const newRow = {};
       columns.forEach(col => {
@@ -566,9 +765,23 @@ const SpreadsheetView = () => {
       
       // Add to data state
       setData(prevData => [...prevData, newRow]);
+      
+      setNotification({
+        open: true,
+        message: 'New row added successfully',
+        severity: 'success'
+      });
+      setTimeout(() => {
+        setDoneByUser(false);
+      }, 500);
+      // Note: Server will emit socket event
     } catch (error) {
       console.error('Error adding row:', error);
-      alert('Error adding row: ' + (error.response?.data?.error || error.message));
+      setNotification({
+        open: true,
+        message: 'Error adding row: ' + (error.response?.data?.error || error.message),
+        severity: 'error'
+      });
     }
   };
 
@@ -590,12 +803,29 @@ const SpreadsheetView = () => {
       link.click();
       document.body.removeChild(link);
       
+      setNotification({
+        open: true,
+        message: 'Excel file downloaded successfully',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error downloading Excel:', error);
-      alert('Error downloading Excel: ' + error.message);
+      setNotification({
+        open: true,
+        message: 'Error downloading Excel: ' + error.message,
+        severity: 'error'
+      });
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // Handle notification close
+  const handleCloseNotification = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setNotification(prev => ({ ...prev, open: false }));
   };
 
   if (loading && !spreadsheet) {
@@ -613,14 +843,14 @@ const SpreadsheetView = () => {
   const getColumnWidth = index => (index === 0 ? 60 : 200); // Sequence column is narrower
   const totalGridWidth = 60 + (columnCount * 200); // 60px for seq column + rest for data columns
   const gridHeight = Math.min(650, rowCount * rowHeight + rowHeight); // Add rowHeight for header
-  // console.log(gridHeight)
+
   // Calculate total and filtered rows count
   const totalRows = data?.length || 0;
   const filteredRows = filteredData?.length || 0;
   const isFiltered = Object.keys(filters).length > 0;
 
   return (
-    <div style={{ width:'98vw', height: 'calc(100vh - 100px)',margin:"auto"}}>
+    <div style={{ width:'98vw', height: 'calc(100vh - 100px)', margin:"auto"}}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h5" component="h1">
@@ -675,7 +905,6 @@ const SpreadsheetView = () => {
           width: '98vw', 
           overflow: 'hidden',
           display: 'flex', 
-          // background:"red",
           flexDirection: 'column'
         }}
       >
@@ -699,6 +928,7 @@ const SpreadsheetView = () => {
 
             {/* Body */}
             <Grid
+              ref={gridRef}
               columnCount={totalColumnCount}
               rowCount={rowCount}
               columnWidth={getColumnWidth}

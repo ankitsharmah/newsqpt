@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-
+import { ToastContainer, toast } from 'react-toastify';
 import Dashboard from './Dashboard';
 import SpreadsheetView from './SpreadsheetView';
 import Header from './Header';
@@ -35,6 +35,19 @@ const theme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={theme}>
+       <ToastContainer
+position="top-center"
+autoClose={5000}
+hideProgressBar={false}
+newestOnTop={false}
+closeOnClick={false}
+rtl={false}
+pauseOnFocusLoss
+draggable
+pauseOnHover
+theme="colored"
+
+/>
       <CssBaseline />
       <Router>
         <Header />
