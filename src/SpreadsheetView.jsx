@@ -52,17 +52,19 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
       </div>
     );
   }
+  
   const handleFocus = () => {
     console.log('Cell focused:', rowIndex, columnKey);
     if (!isLocked && data.onfocus) {
       data.onfocus(rowIndex, columnKey);
     }
   };
+  
   // Adjust columnIndex to get the actual column (subtract 1 because of seq column)
   const actualColumnIndex = columnIndex - 1;
   
   const { rows, columns, onCellChange, editingCell, setEditingCell, 
-          editValue, setEditValue, saveEdit, handleKeyPress,onfocus } = data;
+          editValue, setEditValue, saveEdit, handleKeyPress, onfocus ,customFont} = data;
   
   const row = rows[rowIndex];
   const column = columns[actualColumnIndex];
@@ -74,6 +76,56 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
   const isEditing = editingCell && 
                    editingCell.rowIndex === rowIndex && 
                    editingCell.columnName === columnKey;
+
+  const handleMouseEnter = (e) => {
+    // Don't show tooltip if editing
+    if (isEditing) return;
+    
+    // Get value to display in tooltip
+    let displayValue = cellValue !== null && cellValue !== undefined ? cellValue : '';
+    
+    // Convert to string if not already
+    if (typeof displayValue !== 'string') {
+      displayValue = String(displayValue);
+    }
+    
+    // Only show tooltip if the content is meaningful
+    if (displayValue.trim().length > 0) {
+      const tooltip = document.getElementById('spreadsheet-tooltip');
+      if (tooltip) {
+        tooltip.textContent = displayValue;
+        tooltip.style.display = 'block';
+        
+        // Calculate if tooltip would go off screen and adjust positioning
+        const maxWidth = window.innerWidth - 20;
+        const maxHeight = window.innerHeight - 20;
+        const tooltipWidth = 250;
+        
+        // Adjust X position if would go off right side
+        let posX = e.clientX + 15;
+        if (posX + tooltipWidth > maxWidth) {
+          posX = e.clientX - tooltipWidth - 20;
+        }
+        
+        // Adjust Y position if would go off bottom
+        let posY = e.clientY + 10;
+        const tooltipHeight = tooltip.offsetHeight;
+        if (posY + tooltipHeight > maxHeight) {
+          posY = maxHeight - tooltipHeight;
+        }
+        
+        tooltip.style.left = `${posX}px`;
+        tooltip.style.top = `${posY}px`;
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    const tooltip = document.getElementById('spreadsheet-tooltip');
+    if (tooltip) {
+      tooltip.style.display = 'none';
+    }
+  };
 
   const startEditing = () => {
     if (isLocked) return;
@@ -101,8 +153,7 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
             <Select
               value={cellValue || ''}
               onChange={(e) => onCellChange(rowIndex, columnKey, e.target.value)}
-            onFocus={()=>onfocus(rowIndex, columnKey)}
-
+              onFocus={()=>onfocus(rowIndex, columnKey)}
               displayEmpty
             >
               <MenuItem value="">
@@ -128,10 +179,8 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyPress}
               onBlur={saveEdit}
-
               autoFocus
-            onFocus={()=>onfocus(rowIndex, columnKey)}
-
+              onFocus={()=>onfocus(rowIndex, columnKey)}
             />
           );
         }
@@ -149,8 +198,7 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
               onKeyDown={handleKeyPress}
               onBlur={saveEdit}
               autoFocus
-            onFocus={()=>onfocus(rowIndex, columnKey)}
-
+              onFocus={()=>onfocus(rowIndex, columnKey)}
             />
           );
         }
@@ -170,7 +218,7 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
                   onKeyDown={handleKeyPress}
                   onBlur={saveEdit}
                   autoFocus
-                  onFocus={handleFocus} // Use the handler here
+                  onFocus={handleFocus}
                 />
               </div>
             );
@@ -190,19 +238,22 @@ const Cell = ({ columnIndex, rowIndex, style, data }) => {
         backgroundColor: isLocked ? '#f0f0f0' : (rowIndex % 2 === 0 ? '#fff' : '#f9f9f9'),
         whiteSpace: 'nowrap',
         overflow: 'hidden',
+        fontSize:customFont,
         textOverflow: 'ellipsis',
         cursor: isLocked ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center'
       }}
       onClick={() => !isLocked && !isEditing && startEditing()}
-      onFocus={handleFocus} // Use the handler here
-
+      onFocus={handleFocus}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {renderCellContent()}
     </div>
   );
 };
+
 
 // Custom HeaderCell component
 const HeaderCell = ({ columnIndex, style, data }) => {
@@ -297,7 +348,7 @@ const SpreadsheetView = () => {
   const [editValue, setEditValue] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [doneByUser,setDoneByUser]= useState(false);
-
+  const [customFont,setCustomFont]=useState(13);
   // Socket.io reference
   const socketRef = useRef(null);
   // Grid reference for refreshing
@@ -404,8 +455,110 @@ const SpreadsheetView = () => {
         });
   },[notification])
 
+ // Initialize tooltip element
+useEffect(() => {
+  // Create tooltip element if it doesn't exist
+  if (!document.getElementById('spreadsheet-tooltip')) {
+    const tooltip = document.createElement('div');
+    tooltip.id = 'spreadsheet-tooltip';
+    tooltip.style.cssText = `
+      position: fixed;
+      display: none;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      max-width: 250px;
+      max-height: 100px;
+      overflow: auto;
+      word-break: break-word;
+      pointer-events: none;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      font-size: 14px;
+      z-index: 9999;
+    `;
+    document.body.appendChild(tooltip);
+  }
+  
+  // Clean up on component unmount
+  return () => {
+    const tooltip = document.getElementById('spreadsheet-tooltip');
+    if (tooltip && tooltip.parentNode) {
+      tooltip.parentNode.removeChild(tooltip);
+    }
+  };
+}, []);
+// Throttle function to limit how often a function runs
+const throttle = (func, limit) => {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  };
+};
 
+// Utility functions for tooltip
+const showTooltip = (text, x, y) => {
+  const tooltip = document.getElementById('spreadsheet-tooltip');
+  if (!tooltip) return;
+  
+  tooltip.textContent = text;
+  tooltip.style.display = 'block';
+  
+  // Calculate if tooltip would go off screen and adjust positioning
+  const maxWidth = window.innerWidth - 20;
+  const maxHeight = window.innerHeight - 20;
+  const tooltipWidth = 250;
+  
+  // Adjust X position if would go off right side
+  let posX = x + 15;
+  if (posX + tooltipWidth > maxWidth) {
+    posX = x - tooltipWidth - 20;
+  }
+  
+  // Adjust Y position if would go off bottom
+  let posY = y + 10;
+  const tooltipHeight = tooltip.offsetHeight;
+  if (posY + tooltipHeight > maxHeight) {
+    posY = maxHeight - tooltipHeight;
+  }
+  
+  tooltip.style.left = `${posX}px`;
+  tooltip.style.top = `${posY}px`;
+};
 
+const hideTooltip = () => {
+  const tooltip = document.getElementById('spreadsheet-tooltip');
+  if (tooltip) tooltip.style.display = 'none';
+};
+
+// Throttled update function for mouse movement
+const updateTooltipPosition = throttle((x, y) => {
+  const tooltip = document.getElementById('spreadsheet-tooltip');
+  if (!tooltip || tooltip.style.display === 'none') return;
+  
+  // Get current text to maintain it
+  const text = tooltip.textContent;
+  showTooltip(text, x, y);
+}, 30); // Update at most every 30ms
+
+useEffect(() => {
+  const handleMouseMove = (e) => {
+    updateTooltipPosition(e.clientX, e.clientY);
+  };
+  
+  window.addEventListener('mousemove', handleMouseMove);
+  
+  return () => {
+    window.removeEventListener('mousemove', handleMouseMove);
+    hideTooltip(); // Make sure to hide tooltip on unmount
+  };
+}, []);
   // Handle remote updates received from Socket.io
   const handleRemoteCellUpdates = (updates) => {
     // Skip if these are our own updates
@@ -955,6 +1108,26 @@ const SpreadsheetView = () => {
           </Typography>
         </Box>
         <Box>
+       <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            sx={{ mr: 1 }}
+            onClick={() => setCustomFont(customFont-1)}
+          >
+            decrease font
+          </Button>
+       </Box>
+       <Box>
+       <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            sx={{ mr: 1 }}
+            onClick={() => setCustomFont(customFont+1)}
+          >
+            increse font
+          </Button>
+       </Box>
+        <Box>
           <Button
             variant="outlined"
             startIcon={<AddIcon />}
@@ -1037,12 +1210,18 @@ const SpreadsheetView = () => {
                 setEditValue,
                 saveEdit,
                 handleKeyPress,
-                onfocus: onfocus, // Make sure it's passed explicitly
-
+                onfocus: onfocus,
+                customFont
               }}
             >
               {Cell}
             </Grid>
+            {/* Custom Tooltip */}
+{/* <CustomTooltip 
+  text={tooltipData.text} 
+  position={{ x: tooltipData.x, y: tooltipData.y }} 
+  show={showTooltip} 
+/> */}
           </div>
         </div>
       </Paper>
@@ -1146,6 +1325,7 @@ const SpreadsheetView = () => {
           <Button onClick={handleAddNewColumn} variant="contained">Add</Button>
         </DialogActions>
       </Dialog>
+      
     </div>
   );
 };
