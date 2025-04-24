@@ -54,7 +54,7 @@ const ExcelStyleGrid = () => {
   useEffect(() => {
     const fetchData = async () => {
       const res = await axios.get(
-        'http://localhost:9000/api/api/spreadsheets/67fb9e3099cdc37b2013323c'
+        'https://excel-backend-wl01.onrender.com/api/api/spreadsheets/67fb9e3099cdc37b2013323c'
       );
       setColumns(res.data.columns || []);
       setRows(res.data.data || []);
@@ -143,7 +143,7 @@ export default ExcelStyleGrid;
 // import { toast } from 'react-toastify';
 
 // // Socket URL - use environment variable in production
-// const SOCKET_URL = 'http://localhost:9000/api';
+// const SOCKET_URL = 'https://excel-backend-wl01.onrender.com/api';
 
 // // Custom Cell component
 // const Cell = ({ columnIndex, rowIndex, style, data }) => {
@@ -1033,7 +1033,7 @@ export default ExcelStyleGrid;
 // const fetchSpreadsheetData = async () => {
 // try {
 //   setLoading(true);
-//   const response = await axios.get(`http://localhost:9000/api/spreadsheets/${id}`);
+//   const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
 //   setSpreadsheet(response.data);
 //   setData(response.data.data || []);
 //   setColumns(response.data.columns || []);
@@ -1223,7 +1223,7 @@ export default ExcelStyleGrid;
   
 //   try {
 //     setIsSaving(true);
-//     const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/cells`, {
+//     const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/cells`, {
 //       updates: updatesList
 //     });
     
@@ -1350,7 +1350,7 @@ export default ExcelStyleGrid;
 //   setData(prevData => [...prevData, newRow]);
   
 //   // Send to server
-//   const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/rows`, {
+//   const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/rows`, {
 //     rowData: newRow
 //   });
   
@@ -1430,7 +1430,7 @@ export default ExcelStyleGrid;
 
 // try {
 //   // Add column to server first
-//   const response = await axios.post(`http://localhost:9000/api/spreadsheets/${id}/columns`, {
+//   const response = await axios.post(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns`, {
 //     column: newColumn,
 //     defaultValue
 //   });
@@ -1487,7 +1487,7 @@ export default ExcelStyleGrid;
 
 // try {
 //   // Update on server
-//   await axios.put(`http://localhost:9000/api/spreadsheets/${id}/columns/${columnName}/lock`, {
+//   await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnName}/lock`, {
 //     locked: newLockState
 //   });
   
@@ -1528,7 +1528,7 @@ export default ExcelStyleGrid;
 // const handleDeleteColumn = async () => {
 // try {
 //   // Delete on server
-//   await axios.delete(`http://localhost:9000/api/spreadsheets/${id}/columns/${columnToDelete}`);
+//   await axios.delete(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnToDelete}`);
   
 //   // Update locally
 //   setColumns(prevColumns => prevColumns.filter(col => col.name !== columnToDelete));
@@ -1606,7 +1606,7 @@ export default ExcelStyleGrid;
 
 // try {
 //   // Rename on server
-//   await axios.put(`http://localhost:9000/api/spreadsheets/${id}/columns/${columnToRename}`, {
+//   await axios.put(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}/columns/${columnToRename}`, {
 //     newName: newColumnNameForRename
 //   });
   
