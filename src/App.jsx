@@ -6,6 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import Dashboard from './Dashboard';
 import SpreadsheetView from './SpreadsheetView';
 import Header from './Header';
+import MapComponent from './MapComponent';
 
 const theme = createTheme({
   palette: {
@@ -54,6 +55,7 @@ theme="colored"
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/spreadsheet/:id" element={<SpreadsheetView />} />
+          <Route path="/map" element={     <MapComponent />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </Router>

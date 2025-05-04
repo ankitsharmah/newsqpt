@@ -5,11 +5,13 @@ import App from './App.jsx'
 import ExcelHandler from './ExcelHandler.jsx'
 import ExcelToArray from './ExcelToArray.jsx'
 import ExcelToJson from './ExceltoJson.jsx'
+import MapComponent from './MapComponent.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {/* <ExcelHandler /> */}
 
     <App />
+  
   </StrictMode>,
 )
