@@ -172,7 +172,7 @@ const MapComponent = () => {
             background: 'transparent',
             color: 'white',
             border: 'none',
-            borderRadius: '5px',
+            borderRadius: '6px',
             cursor: 'pointer'
           }}
         >
