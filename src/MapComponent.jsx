@@ -8,9 +8,9 @@ import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 const DefaultIcon = L.icon({
-  iconUrl,
+  iconUrl:"./src/placeholder.png",
   shadowUrl,
-  iconSize: [25, 41],
+  iconSize: [30, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
@@ -165,17 +165,18 @@ const MapComponent = () => {
           style={{
             position: 'absolute',
             bottom: '20px',
-            left: '20px',
+            right: '20px',
+            height:"80px",
             zIndex: 1000,
             padding: '10px 15px',
-            background: '#007BFF',
+            background: 'transparent',
             color: 'white',
             border: 'none',
             borderRadius: '5px',
             cursor: 'pointer'
           }}
         >
-          Navigate
+          <img style={{height:"100%"}} src="./src/center.png" alt="" />
         </button>
       </div>
     </>
