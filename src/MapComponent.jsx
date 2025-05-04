@@ -8,7 +8,7 @@ import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 const DefaultIcon = L.icon({
-  iconUrl:"./placeholder.png",
+  iconUrl:"/placeholder.png",
   shadowUrl,
   iconSize: [30, 41],
   iconAnchor: [12, 41],
@@ -176,7 +176,7 @@ const MapComponent = () => {
             cursor: 'pointer'
           }}
         >
-          <img style={{height:"100%"}} src="./center.png" alt="" />
+          <img style={{height:"100%"}} src="/center.png" alt="" />
         </button>
       </div>
     </>
