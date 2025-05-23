@@ -6,6 +6,7 @@ import L from 'leaflet';
 // Fix marker icons manually
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import axios from 'axios';
 
 const DefaultIcon = L.icon({
   iconUrl:"./img/placeholder.png",
@@ -27,6 +28,13 @@ const RecenterMap = ({ lat, lon }) => {
 
   return null;
 };
+// import axios from 'axios';
+
+
+
+
+
+// Example usage
 
 const MapComponent = () => {
   const [lat, setLat] = useState(28.386533);
@@ -56,7 +64,7 @@ const MapComponent = () => {
 
     const encodedQuery = encodeURIComponent(searchQuery);
     const apiKey = 'pk.8dc5e299f53929224a20616fcd81c3e5'; // Replace with your actual API key
-    const url = `https://us1.locationiq.com/v1/search?key=${apiKey}&q=${encodedQuery}&format=json`;
+    const url = `https://us1.locationiq.com/v1/search?key=${AIzaSyA82Y8RmFo5cDOUX0vqa6-cDkq-SoNbSjg}&q=${encodedQuery}&format=json`;
 
     try {
       const res = await fetch(url);
@@ -95,7 +103,106 @@ const MapComponent = () => {
       });
     }
   };
+  useEffect(()=>{
+   
+    // const getLatLongFromGemini = async (address) => {
+    //     const apiKey = 'AIzaSyA82Y8RmFo5cDOUX0vqa6-cDkq-SoNbSjg'; // Replace with your actual Gemini API key
+    //     const model = 'models/gemini-1.0'; // Try also: models/gemini-1.5-flash
+    //     const endpoint = `https://generativelanguage.googleapis.com/v1/${model}:generateContent?key=${apiKey}`;
+      
+    //     const prompt = `What are the latitude and longitude of ${address}? Respond only in JSON format like {"latitude": ..., "longitude": ...}`;
+      
+    //     try {
+    //       const response = await axios.post(
+    //         endpoint,
+    //         {
+    //           contents: [{ parts: [{ text: prompt }] }],
+    //         },
+    //         {
+    //           headers: {
+    //             'Content-Type': 'application/json',
+    //           },
+    //         }
+    //       );
+      
+    //       const result = response.data.candidates[0]?.content?.parts[0]?.text;
+    //       console.log('Gemini Response:', result);
+    //       return result;
+    //     } catch (error) {
+    //       console.error('Gemini API Error:', error.response?.data || error.message);
+    //       return null;
+    //     }
+    //   };
+      
 
+      const getLatLongFromGemini = async (address) => {
+        const apiKey = 'AIzaSyA82Y8RmFo5cDOUX0vqa6-cDkq-SoNbSjg'; // Replace with your actual Gemini API key
+        const endpoint = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+      
+        const prompt = `Give only the latitude and longitude of this address in JSON format: "${address}"`;
+      
+        try {
+          const response = await axios.post(
+            `${endpoint}?key=${apiKey}`,
+            {
+              contents: [
+                {
+                  parts: [
+                    { text: prompt }
+                  ]
+                }
+              ]
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+      
+          const result = response.data.candidates[0]?.content?.parts[0]?.text;
+          console.log('Gemini Response:', result);
+          return result;
+        } catch (error) {
+          console.error('Gemini API Error:', error.response?.data || error.message);
+          return null;
+        }
+      };
+      
+
+// const getLatLongFromGemini = async (address) => {
+//     const apiKey = 'AIzaSyA82Y8RmFo5cDOUX0vqa6-cDkq-SoNbSjg'; // Replace with your actual Gemini API key
+//     const endpoint = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
+
+//   const prompt = `What are the latitude and longitude of ${address}? Respond in JSON format like {"latitude": ..., "longitude": ...}`;
+
+//   try {
+//     const response = await axios.post(
+//       `${endpoint}?key=${apiKey}`,
+//       {
+//         contents: [{ parts: [{ text: prompt }] }],
+//       },
+//       {
+//         headers: {
+//           'Content-Type': 'application/json',
+//         },
+//       }
+//     );
+
+//     const text = response.data.candidates[0]?.content?.parts[0]?.text;
+//     console.log('Gemini Response:', text);
+//     return text;
+//   } catch (error) {
+//     console.error('Gemini API Error:', error.response?.data || error.message);
+//     return null;
+//   }
+// };
+
+
+
+    getLatLongFromGemini('atal chowk pusta road ismailpur faridabad');
+console.log("ererer")
+},[])
   return (
     <>
       {/* Controls */}

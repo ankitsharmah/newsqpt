@@ -7,6 +7,9 @@ import Dashboard from './Dashboard';
 import SpreadsheetView from './SpreadsheetView';
 import Header from './Header';
 import MapComponent from './MapComponent';
+import ExcelLikeSpreadsheet from './ExcelLikeSpreadsheet';
+// import Handsone from './Handsone';
+import "./App.css"
 
 const theme = createTheme({
   palette: {
@@ -54,8 +57,10 @@ theme="colored"
         <Header />
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/spreadsheet/:id" element={<SpreadsheetView />} />
+          <Route path="/spreadsheet/:id" element={<ExcelLikeSpreadsheet />} />
           <Route path="/map" element={     <MapComponent />} />
+          {/* <Route path="/d" element={     <Handsone/>} /> */}
+
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </Router>

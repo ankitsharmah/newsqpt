@@ -916,7 +916,7 @@ setNotification({
 const fetchSpreadsheetData = async () => {
 try {
   setLoading(true);
-  const response = await axios.get(`https://excel-backend-wl01.onrender.com/api/spreadsheets/${id}`);
+  const response = await axios.get("");
   setSpreadsheet(response.data);
   setData(response.data.data || []);
   setColumns(response.data.columns || []);

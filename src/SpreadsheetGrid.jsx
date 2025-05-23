@@ -6,14 +6,14 @@ import {
 import { FixedSizeGrid as Grid } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
-const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices, scrollContainerRef }) => {
+const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices, scrollContainerRef, columnWidths }) => {
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [gridKey, setGridKey] = useState(0);
 
   useEffect(() => {
     setGridKey(prevKey => prevKey + 1);
-  }, [columns.length]);
+  }, [columns.length, columnWidths]);
 
   const getActualRowIndex = useCallback((viewIndex) => {
     return filteredIndices ? filteredIndices[viewIndex] : viewIndex;
@@ -230,17 +230,20 @@ const SpreadsheetGrid = ({ data, columns, onCellChange, filteredIndices, scrollC
     <Box sx={{ width: '100%', height: '100%' }}>
       <AutoSizer>
         {({ height, width }) => {
-          const columnWidth = Math.max(200, width / columns.length);
+          // Calculate total width based on column widths
+          const totalWidth = columns.reduce((acc, column) => {
+            return acc + (columnWidths[column.name] || 150); // Default width of 150px
+          }, 0);
           
           return (
             <Grid
               key={gridKey}
               columnCount={columns.length}
-              columnWidth={columnWidth}
+              columnWidth={index => columnWidths[columns[index].name] || 150}
               height={height}
               rowCount={displayData.length}
               rowHeight={40}
-              width={width}
+              width={Math.max(width, totalWidth)}
               outerRef={scrollContainerRef}
             >
               {Cell}
