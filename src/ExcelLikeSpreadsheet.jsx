@@ -28,7 +28,7 @@ const ExcelLikeSpreadsheet = ({ apiUrl="https://excel-backend-wl01.onrender.com/
   const [rowHeight, setRowHeight] = useState(32); // Default row height in pixels
   const [viewportHeight, setViewportHeight] = useState(0);
   const [rowNumberWidth, setRowNumberWidth] = useState(50); // Width for row number column
-   
+
   const [pendingUpdates, setPendingUpdates] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [doneByUser, setDoneByUser] = useState(false);
@@ -676,18 +676,19 @@ useEffect(() => {
           }
         }
         break;
-      case 'Enter':
-        if (!editingCell && row < filteredData.length) {
-          const header = headers[col];
-          // Only allow editing if column is not locked
-          if (!columnConfig[header]?.locked) {
-            const value = filteredData[row][header];
-            setEditingCell({ row, col });
-            setEditValue(value !== undefined ? String(value) : '');
+        case 'Enter':
+          if (!editingCell && row < filteredData.length) {
+            const header = headers[col];
+            // Only allow editing if column is not locked
+            if (!columnConfig[header]?.locked) {
+              const value = filteredData[row][header];
+              setEditingCell({ row, col });
+              setEditValue(value !== undefined ? String(value) : '');
+            }
           }
-        }
-        e.preventDefault();
-        break;
+          e.preventDefault();
+          break;
+        
     // Also update the Escape case to handle fullscreen:
       case 'Escape':
         if (isFullscreen) {
@@ -789,8 +790,7 @@ useEffect(() => {
     }, 10);
   };
   
-  // 4. UPDATE THE goToPreviousResult FUNCTION (around line 400-420)
-  const goToPreviousResult = () => {
+   const goToPreviousResult = () => {
     if (searchResults.length === 0) return;
     
     const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
@@ -940,6 +940,12 @@ useEffect(() => {
     // Don't save if column is locked
     if (columnConfig[header]?.locked) {
       setEditingCell(null);
+      // Refocus the table container to maintain keyboard navigation
+      setTimeout(() => {
+        if (tableContainerRef.current) {
+          tableContainerRef.current.focus();
+        }
+      }, 0);
       return;
     }
   
@@ -947,6 +953,12 @@ useEffect(() => {
     const originalValue = filteredData[row]?.[header];
     if (originalValue === editValue) {
       setEditingCell(null);
+      // Refocus the table container to maintain keyboard navigation
+      setTimeout(() => {
+        if (tableContainerRef.current) {
+          tableContainerRef.current.focus();
+        }
+      }, 0);
       return;
     }
   
@@ -975,11 +987,19 @@ useEffect(() => {
   
     setEditingCell(null);
     
+    // Refocus the table container to maintain keyboard navigation
+    setTimeout(() => {
+      if (tableContainerRef.current) {
+        tableContainerRef.current.focus();
+      }
+    }, 50);
+    
     // Re-enable scrolling after a short delay
     setTimeout(() => {
       setShouldPreventScroll(false);
     }, 100);
   };
+  
 const saveChanges = useCallback(
   debounce(async () => {
     if (pendingUpdates.length === 0) return;
@@ -1217,10 +1237,16 @@ useEffect(() => {
             onBlur={saveEditedValue}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                saveEditedValue();
                 e.preventDefault();
+                saveEditedValue();
               } else if (e.key === 'Escape') {
                 setEditingCell(null);
+                // Refocus the table container
+                setTimeout(() => {
+                  if (tableContainerRef.current) {
+                    tableContainerRef.current.focus();
+                  }
+                }, 0);
                 e.preventDefault();
               }
             }}
@@ -1242,10 +1268,16 @@ useEffect(() => {
             onBlur={saveEditedValue}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                saveEditedValue(header);
                 e.preventDefault();
+                saveEditedValue(header);
               } else if (e.key === 'Escape') {
                 setEditingCell(null);
+                // Refocus the table container
+                setTimeout(() => {
+                  if (tableContainerRef.current) {
+                    tableContainerRef.current.focus();
+                  }
+                }, 0);
                 e.preventDefault();
               }
             }}
