@@ -7,10 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-
-  "postinstall": "npm install --legacy-peer-deps"
-
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -31,9 +28,9 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.356.0",
     "papaparse": "^5.5.2",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-leaflet": "^5.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^7.5.0",
     "react-toastify": "^11.0.5",
     "react-virtualized-auto-sizer": "^1.0.26",

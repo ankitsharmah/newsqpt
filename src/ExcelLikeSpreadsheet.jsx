@@ -22,13 +22,13 @@ const ExcelLikeSpreadsheet = ({ apiUrl="https://excel-backend-wl01.onrender.com/
   const [columnWidths, setColumnWidths] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-    const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
+  const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
   // Virtualization state
   const [visibleRowsRange, setVisibleRowsRange] = useState({ start: 0, end: 50 });
   const [rowHeight, setRowHeight] = useState(32); // Default row height in pixels
   const [viewportHeight, setViewportHeight] = useState(0);
   const [rowNumberWidth, setRowNumberWidth] = useState(50); // Width for row number column
-  
+   
   const [pendingUpdates, setPendingUpdates] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [doneByUser, setDoneByUser] = useState(false);
@@ -230,8 +230,6 @@ const pushUpdate = (update) => {
   }, []);
   
 
-  //serch useefect 
-
   useEffect(() => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
@@ -265,10 +263,16 @@ const pushUpdate = (update) => {
     if (results.length > 0) {
       const firstResult = results[0];
       setActiveCell({ row: firstResult.rowIndex, col: firstResult.colIndex });
-      ensureRowVisible(firstResult.rowIndex, true); // Force scroll for search
-      ensureColumnVisible(firstResult.colIndex);
+      
+      // Use setTimeout to ensure state updates are processed
+      setTimeout(() => {
+        ensureRowVisible(firstResult.rowIndex, true);
+        ensureColumnVisible(firstResult.colIndex);
+      }, 0);
     }
-  }, [searchTerm, filteredData, headers, caseSensitive]);
+  }, [searchTerm, caseSensitive, filteredData, headers]); // K
+  
+  
 
 
 
@@ -769,20 +773,6 @@ useEffect(() => {
   };
   
   
-  // 4. Add these helper functions after your existing helper functions:
-  
-  const goToPreviousResult = () => {
-    if (searchResults.length === 0) return;
-    
-    const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
-    setCurrentSearchIndex(newIndex);
-    
-    const result = searchResults[newIndex];
-    setActiveCell({ row: result.rowIndex, col: result.colIndex });
-    ensureRowVisible(result.rowIndex, true); // Force scroll for search navigation
-    ensureColumnVisible(result.colIndex);
-  };
-  
   const goToNextResult = () => {
     if (searchResults.length === 0) return;
     
@@ -791,12 +781,34 @@ useEffect(() => {
     
     const result = searchResults[newIndex];
     setActiveCell({ row: result.rowIndex, col: result.colIndex });
-    ensureRowVisible(result.rowIndex, true); // Force scroll for search navigation
-    ensureColumnVisible(result.colIndex);
+    
+    // Ensure the cell is visible with a slight delay to allow state update
+    setTimeout(() => {
+      ensureRowVisible(result.rowIndex, true);
+      ensureColumnVisible(result.colIndex);
+    }, 10);
   };
   
+  // 4. UPDATE THE goToPreviousResult FUNCTION (around line 400-420)
+  const goToPreviousResult = () => {
+    if (searchResults.length === 0) return;
+    
+    const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
+    setCurrentSearchIndex(newIndex);
+    
+    const result = searchResults[newIndex];
+    setActiveCell({ row: result.rowIndex, col: result.colIndex });
+    
+    // Ensure the cell is visible with a slight delay to allow state update
+    setTimeout(() => {
+      ensureRowVisible(result.rowIndex, true);
+      ensureColumnVisible(result.colIndex);
+    }, 10);
+  };
+  
+  
   // Highlight search term in text
-  const highlightSearchTerm = (text, searchTerm, caseSensitive = false) => {
+  const highlightSearchTerm = (text, searchTerm, caseSensitive = false, rowIndex, colIndex) => {
     if (!searchTerm.trim()) return text;
     
     const textStr = String(text || '');
@@ -805,9 +817,16 @@ useEffect(() => {
     
     if (!textToSearch.includes(searchStr)) return textStr;
     
+    // Check if this cell is the current active search result
+    const currentResult = searchResults[currentSearchIndex];
+    const isCurrentResult = currentResult && 
+      currentResult.rowIndex === rowIndex && 
+      currentResult.colIndex === colIndex;
+    
     const parts = [];
     let lastIndex = 0;
     let index = textToSearch.indexOf(searchStr);
+    let matchCount = 0;
     
     while (index !== -1) {
       // Add text before match
@@ -815,15 +834,28 @@ useEffect(() => {
         parts.push(textStr.substring(lastIndex, index));
       }
       
-      // Add highlighted match
+      // Add highlighted match with appropriate color
+      const highlightStyle = {
+        backgroundColor: isCurrentResult ? 'rgb(255 102 0 / 68%)' : '#ffff00', // Orange for current, yellow for others
+        fontWeight: 'bold',
+        color: isCurrentResult ? 'white' : 'black',
+        padding: '1px 2px',
+        borderRadius: '2px',
+        border:  'none'
+      };
+      
       parts.push(
-        <span key={`${index}-highlight`} style={{ backgroundColor: 'yellow', fontWeight: 'bold' }}>
+        <span 
+          key={`${rowIndex}-${colIndex}-${matchCount}-highlight`} 
+          style={highlightStyle}
+        >
           {textStr.substring(index, index + searchStr.length)}
         </span>
       );
       
       lastIndex = index + searchStr.length;
       index = textToSearch.indexOf(searchStr, lastIndex);
+      matchCount++;
     }
     
     // Add remaining text
@@ -833,6 +865,7 @@ useEffect(() => {
     
     return parts;
   };
+  
   
 
   const scrollbarStyles = `
@@ -1169,7 +1202,7 @@ useEffect(() => {
   const totalHeight = filteredData.length * rowHeight;
   
   // Render cell content based on column type
-  const renderCellContent = (row, header, isEditing) => {
+  const renderCellContent = (row, header, isEditing, rowIndex, colIndex) => {
     const columnType = columnConfig[header]?.type || 'text';
     const columnOptions = columnConfig[header]?.options || [];
     const value = row[header];
@@ -1221,22 +1254,22 @@ useEffect(() => {
         );
       }
     } else {
-      // Highlight search terms in cell content
+      // Highlight search terms in cell content - PASS ROW AND COLUMN INDEX
       const displayValue = searchTerm.trim() 
-        ? highlightSearchTerm(value, searchTerm, caseSensitive)
+        ? highlightSearchTerm(value, searchTerm, caseSensitive, rowIndex, colIndex)
         : value;
         
-        return (
-          <div 
-            className="excel-spread-sheet-cell-content"
-            style={{ fontSize: `${fontSize}px` }}
-          >
-            {displayValue}
-          </div>
-        );
-        
+      return (
+        <div 
+          className="excel-spread-sheet-cell-content"
+          style={{ fontSize: `${fontSize}px` }}
+        >
+          {displayValue}
+        </div>
+      );
     }
   };
+  
   
   // Render the row number cell
   const renderRowNumberCell = (rowIndex) => {
@@ -1304,36 +1337,37 @@ useEffect(() => {
               
               {/* Data cells */}
               {headers.map((header, colIndex) => {
-                const isActiveCellThis = isActiveRow && activeCell.col === colIndex;
-                const isEditing = 
-                  editingCell && 
-                  editingCell.row === rowIndex && 
-                  editingCell.col === colIndex;
-                const isLocked = columnConfig[header]?.locked;
-                
-                return (
-                  <div 
-                    key={`${rowIndex}-${colIndex}`}
-                    className={`excel-spread-sheet-cell 
-                      ${isActiveCellThis ? 'excel-spread-sheet-active-cell' : ''}
-                      ${isLocked ? 'excel-spread-sheet-locked-cell' : ''}
-                    `}
-                    onClick={() => setActiveCell({ row: rowIndex, col: colIndex })}
-                    onDoubleClick={() => {
-                      if (!isLocked) {
-                        setEditingCell({ row: rowIndex, col: colIndex });
-                        setEditValue(row[header] !== undefined ? String(row[header]) : '');
-                      }
-                    }}
-                    style={{ 
-                      width: `${columnWidths[header] || 150}px`,
-                      minWidth: `${columnWidths[header] || 150}px`,
-                    }}
-                  >
-                    {renderCellContent(row, header, isEditing)}
-                  </div>
-                );
-              })}
+  const isActiveCellThis = isActiveRow && activeCell.col === colIndex;
+  const isEditing = 
+    editingCell && 
+    editingCell.row === rowIndex && 
+    editingCell.col === colIndex;
+  const isLocked = columnConfig[header]?.locked;
+  
+  return (
+    <div 
+      key={`${rowIndex}-${colIndex}`}
+      className={`excel-spread-sheet-cell 
+        ${isActiveCellThis ? 'excel-spread-sheet-active-cell' : ''}
+        ${isLocked ? 'excel-spread-sheet-locked-cell' : ''}
+      `}
+      onClick={() => setActiveCell({ row: rowIndex, col: colIndex })}
+      onDoubleClick={() => {
+        if (!isLocked) {
+          setEditingCell({ row: rowIndex, col: colIndex });
+          setEditValue(row[header] !== undefined ? String(row[header]) : '');
+        }
+      }}
+      style={{ 
+        width: `${columnWidths[header] || 150}px`,
+        minWidth: `${columnWidths[header] || 150}px`,
+      }}
+    >
+      {/* UPDATED: Pass rowIndex and colIndex to renderCellContent */}
+      {renderCellContent(row, header, isEditing, rowIndex, colIndex)}
+    </div>
+  );
+})}
             </div>
           );
         })}
